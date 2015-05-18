@@ -3,7 +3,10 @@ var AjaxCrud = function (config) {
 	var form = config.form; //$("form#create")
 	var table = config.table; //$("table#customers")
 	var createInitButton = config.createInitButton //$('button.js-create-init')
-	var formValidation = form.data('formValidation');
+	var formValidation;
+	if (typeof(form) != "undefined") {
+		formValidation = form.data('formValidation');
+	}
 	var dataTable = table.DataTable(config.datatableArgs);
 
 	var urls = {
@@ -82,11 +85,7 @@ var AjaxCrud = function (config) {
 		 // FormValidation instance
 	    var $row = $(event.target).closest('tr');
 
-		// Validate the container
-		formValidation.validateContainer($row);
-		var isValidRow = formValidation.isValidContainer($row);
-		
-		if (isValidRow === false || isValidRow === null) {
+		if (validationIsValid($row)) {
 		    // Stop submission because of validation error.
 		    return false;
 		}
@@ -98,7 +97,7 @@ var AjaxCrud = function (config) {
 			putData[$(this).attr('name')] = $(this).val();
 		});
 
-		blockUI();
+		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "PUT",
@@ -108,14 +107,11 @@ var AjaxCrud = function (config) {
 			});
 
 		request.done(function( html ) {
-			$row.find('.value-field').each( function (index, element) {
-				formValidation.resetField($(this));
-			});
-			
+			validationResetFields($row.find('.value-field'));
 
 			$row = $(html).replaceAll($row);
 
-			App.activate($row);
+			activateJs($row);
 			$.unblockUI();
 
 		});
@@ -132,7 +128,7 @@ var AjaxCrud = function (config) {
 		var $row = $(event.target).closest('tr');
 		var id = $row.attr('data-id');
 
-		blockUI();
+		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "GET",
@@ -144,13 +140,11 @@ var AjaxCrud = function (config) {
 		request.done(function( html ) {
 			$row = $(html).replaceAll($row);
 
-			App.activate($row);
+			activateJs($row);
 
-			$row.find('.value-field').each( function (index, element) {
-				formValidation.addField($(this));
-			});
+			validationAddFields($row.find('.value-field'));
+
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
-			
 
 			$.unblockUI();
 		});
@@ -167,7 +161,7 @@ var AjaxCrud = function (config) {
 		var $row = $(event.target).closest('tr');
 		var id = $row.attr('data-id');
 
-		blockUI();
+		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "GET",
@@ -176,13 +170,11 @@ var AjaxCrud = function (config) {
 			});
 
 		request.done(function( html ) {
-			$row.find('.value-field').each( function (index, element) {
-				formValidation.resetField($(this));
-			});
+			validationResetFields($row.find('.value-field'));
 
 			$row = $(html).replaceAll($row);
 
-			App.activate($row);
+			activateJs($row);
 
 			$.unblockUI();
 
@@ -203,7 +195,7 @@ var AjaxCrud = function (config) {
 			id = $(event.target).closest('a').attr('data-id');
 		}
 		
-		blockUI();
+		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "DELETE",
@@ -248,7 +240,7 @@ var AjaxCrud = function (config) {
 	function addNewRow (event) {
 		var $row = table.find('tfoot tr:last');
 
-		blockUI();
+		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "GET",
@@ -260,11 +252,9 @@ var AjaxCrud = function (config) {
 			$row.before(html);
 			$row = $row.prev();
 
-			App.activate($row);
+			activateJs($row);
 
-			$row.find('.value-field').each( function (index, element) {
-				formValidation.addField($(this));
-			});
+			validationAddFields($row.find('.value-field'));
 
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
 
@@ -280,24 +270,15 @@ var AjaxCrud = function (config) {
 
 	}
 
-	function addNewRowRequestDone($row) {
-		if(!(typeof(config.hooks.addNewRowRequestDone) == "undefined")) {
-			config.hooks.addNewRowRequestDone($row);
-		}
-	}
-
 	function saveNewRows (event) {
 		var $tfoot = table.find('tfoot');
 
-		formValidation.validateContainer($tfoot);
-
-		var isValidFooter = formValidation.isValidContainer($tfoot);
-		if (isValidFooter === false || isValidFooter === null) {
+		if (validationIsValid($tfoot)) {
 		    // Stop submission because of validation error.
 		    return false;
 		}
 
-		blockUI();
+		$.blockUI({ message: '' });
 
 		var newRowsData = {};
 		table.find('tfoot tr.edit-row').each(function(index, element) {
@@ -321,9 +302,7 @@ var AjaxCrud = function (config) {
 
 		request.done(function( html ) {
 			table.find('tfoot tr.edit-row').each( function (index, element) {
-				$(this).find('.value-field').each( function (index, element) {
-					formValidation.resetField($(this));
-				});
+				validationResetFields($(this).find('.value-field'));
 			});
 
 			table.find('tfoot tr.edit-row').remove();
@@ -338,13 +317,12 @@ var AjaxCrud = function (config) {
 			$(newRows).each( function (index, element) {
 				if($(this).context.nodeName != "#text") {
 					var row = dataTable.row.add($(this)).draw().node();
-					App.activate($(row));
+					activateJs($(row));
 				}
 			});
 
 			//Hook Call
 			applyHook('saveNewRowsRequestDone', {"table": table});
-			//saveNewRowsRequestDone(table);
 
 			$.unblockUI();
 
@@ -357,18 +335,11 @@ var AjaxCrud = function (config) {
 		});
 	}
 
-	function saveNewRowsRequestDone(table) {
-		if(!(typeof(config.hooks.saveNewRowsRequestDone) == "undefined")) {
-			config.hooks.saveNewRowsRequestDone(table);
-		}
-	}
-
-
 	function deleteNewRow (event) {
 		var $row = $(event.target).closest('tr');
-		$row.find('.value-field').each( function (index, element) {
-			formValidation.resetField($(this));
-		});
+
+		validationResetFields($row.find('.value-field'));
+
 		$row.remove();
 
 		//Checks to see if there are any added rows, if not hide the submit button
@@ -378,16 +349,9 @@ var AjaxCrud = function (config) {
 			if(typeof(createInitButton) != "undefined") {
 				createInitButton.show();	
 			}
-
 		}
 
 		applyHook('deleteNewRowDone', {"table": table});
-	}
-
-	function deleteNewRowDone(table) {
-		if(!(typeof(config.hooks.deleteNewRowDone) == "undefined")) {
-			config.hooks.deleteNewRowDone(table);
-		}
 	}
 
 	function sortRows (event) {
@@ -444,7 +408,7 @@ var AjaxCrud = function (config) {
 			//Gets an array of ids in the order the user sorted them
 			var ids = $('table.packaging_sizes tbody').sortable("toArray", { attribute: "data-id" });
 
-			blockUI();
+			$.blockUI({ message: '' });
 
 			var request = $.ajax({
 				method: "PUT",
@@ -471,5 +435,48 @@ var AjaxCrud = function (config) {
 		if(!(typeof(config.hooks[hook]) == "undefined")) {
 			config.hooks[hook](args);
 		}
+	}
+
+	function validationIsValid($container) {
+		if(typeof(formValidation) == "undefined") {
+			return true;
+
+		} else {
+			// Validate the container
+			formValidation.validateContainer($container);
+			var isValidContainer = formValidation.isValidContainer($container);
+			
+			if (isValidContainer === false || isValidContainer === null) {
+			    // Stop submission because of validation error.
+			    return false;
+
+			} else {
+				return true;
+
+			}
+		}
+		
+	}
+
+	function validationAddFields($fields) {
+		if(typeof(formValidation) != "undefined") {
+			$fields.each( function (index, element) {
+				formValidation.addField($(this));
+			});
+		}
+	}
+
+	function validationResetFields($fields) {
+		if(typeof(formValidation) != "undefined") {
+			$fields.each( function (index, element) {
+				formValidation.resetField($(this));
+			});
+		}
+	}
+
+	function activateJs($parent) {
+		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
+			App.activate($parent);
+		} 
 	}
 }

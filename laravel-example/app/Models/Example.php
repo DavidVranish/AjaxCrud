@@ -3,7 +3,7 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Carrier extends Model {
+class Example extends Model {
 
 	use SoftDeletes;
 
