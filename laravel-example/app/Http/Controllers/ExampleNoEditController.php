@@ -33,9 +33,9 @@ class ExampleNoEditController extends Controller
 
         foreach ($newRows as $newRow) {
             $example = new ExampleNoEdit();
-            $example->name = $newRow['name'];
-            $example->email = $newRow['email'];
-            $example->status = $newRow['status'];
+            $example->field1 = $newRow['field1'];
+            $example->field2 = $newRow['field2'];
+            $example->field3 = $newRow['field3'];
             $example->save();
 
             $examples[] = $example;

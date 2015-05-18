@@ -18,9 +18,9 @@ class Example2TableController extends Controller
     public function putTable1Row(Request $request, $id)
     {
         $example = ExampleTable1::find($id);
-        $example->name = $request->input('name');
-        $example->email = $request->input('email');
-        $example->status = $request->input('status');
+        $example->field1 = $request->input('field1');
+        $example->field2 = $request->input('field2');
+        $example->field3 = $request->input('field3');
         $example->save();
 
         return view('examples_2_tables.partials.table_1.rows', 
@@ -60,9 +60,9 @@ class Example2TableController extends Controller
 
         foreach ($newRows as $newRow) {
             $example = new ExampleTable1();
-            $example->name = $newRow['name'];
-            $example->email = $newRow['email'];
-            $example->status = $newRow['status'];
+            $example->field1 = $newRow['field1'];
+            $example->field2 = $newRow['field2'];
+            $example->field3 = $newRow['field3'];
             $example->save();
 
             $examples[] = $example;
@@ -89,9 +89,9 @@ class Example2TableController extends Controller
     public function putTable2Row(Request $request, $id)
     {
         $example = ExampleTable2::find($id);
-        $example->name = $request->input('name');
-        $example->email = $request->input('email');
-        $example->status = $request->input('status');
+        $example->field1 = $request->input('field1');
+        $example->field2 = $request->input('field2');
+        $example->field3 = $request->input('field3');
         $example->save();
 
         return view('examples_2_tables.partials.table_2.rows', 
@@ -131,9 +131,9 @@ class Example2TableController extends Controller
 
         foreach ($newRows as $newRow) {
             $example = new ExampleTable2();
-            $example->name = $newRow['name'];
-            $example->email = $newRow['email'];
-            $example->status = $newRow['status'];
+            $example->field1 = $newRow['field1'];
+            $example->field2 = $newRow['field2'];
+            $example->field3 = $newRow['field3'];
             $example->save();
 
             $examples[] = $example;

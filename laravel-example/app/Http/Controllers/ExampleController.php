@@ -18,9 +18,9 @@ class ExampleController extends Controller
     public function putExampleRow(Request $request, $id)
     {
         $example = Example::find($id);
-        $example->name = $request->input('name');
-        $example->email = $request->input('email');
-        $example->status = $request->input('status');
+        $example->field1 = $request->input('field1');
+        $example->field2 = $request->input('field2');
+        $example->field3 = $request->input('field3');
         $example->save();
 
         return view('setup.examples.partials.rows', 
@@ -60,9 +60,9 @@ class ExampleController extends Controller
 
         foreach ($newRows as $newRow) {
             $example = new Example();
-            $example->name = $newRow['name'];
-            $example->email = $newRow['email'];
-            $example->status = $newRow['status'];
+            $example->field1 = $newRow['field1'];
+            $example->field2 = $newRow['field2'];
+            $example->field3 = $newRow['field3'];
             $example->save();
 
             $examples[] = $example;
