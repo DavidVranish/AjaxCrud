@@ -3,10 +3,10 @@
 use Illuminate\Database\Eloquent\Model;
 use Illuminate\Database\Eloquent\SoftDeletes;
 
-class Example extends Model {
+class ExampleTable1 extends Model {
 
 	use SoftDeletes;
 
-	protected $table = 'examples';
+	protected $table = 'examples_table_1';
 
 }

@@ -85,7 +85,7 @@ var AjaxCrud = function (config) {
 		 // FormValidation instance
 	    var $row = $(event.target).closest('tr');
 
-		if (validationIsValid($row)) {
+		if (!validationIsValid($row)) {
 		    // Stop submission because of validation error.
 		    return false;
 		}
@@ -273,7 +273,7 @@ var AjaxCrud = function (config) {
 	function saveNewRows (event) {
 		var $tfoot = table.find('tfoot');
 
-		if (validationIsValid($tfoot)) {
+		if (!validationIsValid($tfoot)) {
 		    // Stop submission because of validation error.
 		    return false;
 		}
@@ -445,14 +445,14 @@ var AjaxCrud = function (config) {
 			// Validate the container
 			formValidation.validateContainer($container);
 			var isValidContainer = formValidation.isValidContainer($container);
-			
 			if (isValidContainer === false || isValidContainer === null) {
 			    // Stop submission because of validation error.
 			    return false;
+			    
 
 			} else {
 				return true;
-
+				
 			}
 		}
 		
