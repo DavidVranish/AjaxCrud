@@ -146,6 +146,8 @@ var AjaxCrud = function (config) {
 
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
 
+			validationIsValid($row);
+
 			$.unblockUI();
 		});
 
@@ -259,6 +261,8 @@ var AjaxCrud = function (config) {
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
 
 			applyHook('addNewRowRequestDone', {"$row": $row});
+
+			validationIsValid($row);
 
 			$.unblockUI();
 		});
