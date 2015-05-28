@@ -19,6 +19,18 @@ var AjaxCrud = function (config) {
 		urlAjaxSortPut: ""
 	};	
 
+	table.find('td').each( function() {
+		if (typeof($(this).attr('date-order')) == 'undefined' || $(this).attr('data-order').length < 1) {
+			$(this).attr('data-order', $(this).html());
+		}
+	});
+
+	form.on('changeDate', '.value-field', function(event) {
+		if(typeof(formValidation) != "undefined") {
+			formValidation.revalidateField($(this));
+		}
+	});
+
 	table.on('click', '.ads-edit-row', function (event) {
 		event.preventDefault();
 		editRow(event);
@@ -41,6 +53,19 @@ var AjaxCrud = function (config) {
 		event.preventDefault();
 		saveRow(event);
 
+	});
+
+	table.on('keypress', 'input', function (event) {
+		// Make the default action of hitting enter to attempt to save the current row
+		if (event.which == '13') {
+			var $row = $(event.target).closest('tr');
+			event.preventDefault();
+			if ($row.attr('data-id') > 0)
+				saveRow(event);
+			else
+				addNewRow(event);
+			return false;			
+		}
 	});
 
 	table.on('click', '.ads-cancel-row', function (event) {
@@ -91,7 +116,7 @@ var AjaxCrud = function (config) {
 		}
 
 		var id = $row.attr('data-id');
-
+			
 		var putData = {};
 		$row.find('.value-field').each( function() {
 			putData[$(this).attr('name')] = $(this).val();
@@ -108,8 +133,17 @@ var AjaxCrud = function (config) {
 
 		request.done(function( html ) {
 			validationResetFields($row.find('.value-field'));
-
-			$row = $(html).replaceAll($row);
+			var $rowIndex = dataTable.row($row).index();
+	
+			validationResetFields($row.find('.value-field'));
+	
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			dataTable.row($rowIndex).data($data).draw();
 
 			activateJs($row);
 			$.unblockUI();
@@ -138,7 +172,18 @@ var AjaxCrud = function (config) {
 		});
 
 		request.done(function( html ) {
-			$row = $(html).replaceAll($row);
+			var $row = $(event.target).closest('tr');
+			var $rowIndex = dataTable.row($row).index();
+	
+			validationResetFields($row.find('.value-field'));
+	
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			dataTable.row($rowIndex).data($data).draw();
 
 			activateJs($row);
 
@@ -146,7 +191,7 @@ var AjaxCrud = function (config) {
 
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
 
-			validationIsValid($row);
+			// validationIsValid($row);
 
 			$.unblockUI();
 		});
@@ -172,9 +217,19 @@ var AjaxCrud = function (config) {
 			});
 
 		request.done(function( html ) {
+			var $rowIndex = dataTable.row($row).index();
+			
 			validationResetFields($row.find('.value-field'));
 
-			$row = $(html).replaceAll($row);
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			dataTable.row($rowIndex).data($data).draw();
+
+			// $row = $(html).replaceAll($row);
 
 			activateJs($row);
 
@@ -262,7 +317,7 @@ var AjaxCrud = function (config) {
 
 			applyHook('addNewRowRequestDone', {"$row": $row});
 
-			validationIsValid($row);
+			//validationIsValid($row);
 
 			$.unblockUI();
 		});
@@ -289,7 +344,6 @@ var AjaxCrud = function (config) {
 			var newRowData = {};
 			$(this).find('.value-field').each(function (index, element) {
 				newRowData[$(this).attr('name')] = $(this).val();
-
 			});
 			newRowsData[index] = newRowData;
 
@@ -341,10 +395,11 @@ var AjaxCrud = function (config) {
 
 	function deleteNewRow (event) {
 		var $row = $(event.target).closest('tr');
+		var $rowIndex = dataTable.row($row).index();
 
 		validationResetFields($row.find('.value-field'));
 
-		$row.remove();
+		dataTable.row($rowIndex).remove().draw();
 
 		//Checks to see if there are any added rows, if not hide the submit button
 		if(table.find('tfoot tr').size() == 1) {
@@ -482,5 +537,14 @@ var AjaxCrud = function (config) {
 		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
 			App.activate($parent);
 		} 
+	}
+	
+	return {
+	
+		getDT: function()
+		{
+			return dataTable;
+		}
+	
 	}
 }
