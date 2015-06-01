@@ -19,9 +19,9 @@ var AjaxCrud = function (config) {
 		urlAjaxSortPut: ""
 	};	
 
-	table.find('td').each( function() {
-		if (typeof($(this).attr('date-order')) == 'undefined' || $(this).attr('data-order').length < 1) {
-			$(this).attr('data-order', $(this).html());
+	table.find('tbody td').each( function() {
+		if (typeof($(this).attr('data-order')) == 'undefined' || $(this).attr('data-order').length < 1) {
+			$(this).attr('data-order', $(this).text());
 		}
 	});
 
@@ -106,23 +106,34 @@ var AjaxCrud = function (config) {
 		config.hooks = {};
 	}
 
-	function saveRow (event) {
-		 // FormValidation instance
+	function saveRow (event, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+		
+		// FormValidation instance
 	    var $row = $(event.target).closest('tr');
 
-		if (!validationIsValid($row)) {
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($row, recursive) == null) {
 		    // Stop submission because of validation error.
+		    setTimeout(function() {saveRow(event, true)}, 150);
 		    return false;
+
+		} else if (validationIsValid($row, recursive) == false) {
+			return false;
+			
 		}
 
 		var id = $row.attr('data-id');
-			
+		
 		var putData = {};
 		$row.find('.value-field').each( function() {
 			putData[$(this).attr('name')] = $(this).val();
 		});
-
-		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "PUT",
@@ -144,6 +155,8 @@ var AjaxCrud = function (config) {
 			$dRow.remove();
 			
 			dataTable.row($rowIndex).data($data).draw();
+
+			applyHook('saveRowRequestDone', {"$row": $row});
 
 			activateJs($row);
 			$.unblockUI();
@@ -329,12 +342,25 @@ var AjaxCrud = function (config) {
 
 	}
 
-	function saveNewRows (event) {
-		var $tfoot = table.find('tfoot');
+	function saveNewRows (event, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
 
-		if (!validationIsValid($tfoot)) {
+		var $tfoot = table.find('tfoot');
+		
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($tfoot, recursive) == null) {
 		    // Stop submission because of validation error.
+		    setTimeout(function() {saveRow(event, true)}, 150);
 		    return false;
+
+		} else if (validationIsValid($tfoot, recursive) == false) {
+			return false;
+			
 		}
 
 		$.blockUI({ message: '' });
@@ -496,18 +522,23 @@ var AjaxCrud = function (config) {
 		}
 	}
 
-	function validationIsValid($container) {
+	function validationIsValid($container, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+
 		if(typeof(formValidation) == "undefined") {
 			return true;
 
 		} else {
 			// Validate the container
-			formValidation.validateContainer($container);
+			if(recursive === false) {
+				formValidation.validateContainer($container);	
+			}
 			var isValidContainer = formValidation.isValidContainer($container);
 			if (isValidContainer === false || isValidContainer === null) {
 			    // Stop submission because of validation error.
-			    return false;
-			    
+			    return isValidContainer;
 
 			} else {
 				return true;
@@ -536,15 +567,15 @@ var AjaxCrud = function (config) {
 	function activateJs($parent) {
 		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
 			App.activate($parent);
-		} 
+		}
 	}
 	
 	return {
-	
-		getDT: function()
-		{
-			return dataTable;
-		}
-	
+		form: form,
+		table: table,
+		createInitButton: createInitButton,
+		formValidation: formValidation,
+		dataTable: dataTable,
+		urls: urls
 	}
 }
