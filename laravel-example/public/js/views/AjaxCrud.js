@@ -7,7 +7,7 @@ var AjaxCrud = function (config) {
 	if (typeof(form) != "undefined") {
 		formValidation = form.data('formValidation');
 		
-		if ($('[id='+formValidation.$form.attr('id')+']').length > 1) {
+		if ($('[id='+form.attr('id')+']').length > 1) {
  			console.warn('Form Validation will have problems, duplicate IDs detected!');
  		}
 	}
