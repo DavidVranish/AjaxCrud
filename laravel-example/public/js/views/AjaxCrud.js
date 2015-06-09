@@ -10,6 +10,7 @@ var AjaxCrud = function (config) {
 		if ($('[id='+form.attr('id')+']').length > 1) {
  			console.warn('Form Validation will have problems, duplicate IDs detected!');
  		}
+		
 	}
 	var dataTable = table.DataTable(config.datatableArgs);
 
@@ -158,7 +159,7 @@ var AjaxCrud = function (config) {
 			$data = $dRow.data();
 			$dRow.remove();
 			
-			dataTable.row($rowIndex).data($data).draw();
+			dataTable.row($rowIndex).data($data).draw(false);
 
 			applyHook('saveRowRequestDone', {"$row": $row});
 
@@ -184,8 +185,7 @@ var AjaxCrud = function (config) {
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxEditableRowGet.replace("_id_", id),
-			cache: false,
-
+			cache: false
 		});
 
 		request.done(function( html ) {
@@ -200,7 +200,7 @@ var AjaxCrud = function (config) {
 			$data = $dRow.data();
 			$dRow.remove();
 			
-			dataTable.row($rowIndex).data($data).draw();
+			dataTable.row($rowIndex).data($data).draw(false);
 
 			activateJs($row);
 
@@ -208,7 +208,7 @@ var AjaxCrud = function (config) {
 
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
 
-			// validationIsValid($row);
+			applyHook('editRowRequestDone', {"$row": $row});
 
 			$.unblockUI();
 		});
@@ -244,7 +244,7 @@ var AjaxCrud = function (config) {
 			$data = $dRow.data();
 			$dRow.remove();
 			
-			dataTable.row($rowIndex).data($data).draw();
+			dataTable.row($rowIndex).data($data).draw(false);
 
 			// $row = $(html).replaceAll($row);
 
@@ -280,7 +280,7 @@ var AjaxCrud = function (config) {
 		request.done(function( html ) {
 			dataTable.row(table.find('tr[data-id="' + id + '"]'))
         		.remove()
-        		.draw();
+        		.draw(false);
 
 			$.unblockUI();
 
@@ -319,7 +319,7 @@ var AjaxCrud = function (config) {
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxNewRowGet,
-			cache: false,
+			cache: false
 		});
 
 		request.done(function( html ) {
@@ -404,7 +404,7 @@ var AjaxCrud = function (config) {
 
 			$(newRows).each( function (index, element) {
 				if($(this).context.nodeName != "#text") {
-					var row = dataTable.row.add($(this)).draw().node();
+					var row = dataTable.row.add($(this)).draw(false).node();
 					activateJs($(row));
 				}
 			});
@@ -427,9 +427,12 @@ var AjaxCrud = function (config) {
 		var $row = $(event.target).closest('tr');
 		var $rowIndex = dataTable.row($row).index();
 
+		console.log('a');
+
 		validationResetFields($row.find('.value-field'));
 
-		dataTable.row($rowIndex).remove().draw();
+		// dataTable.row($rowIndex).remove().draw(false);
+		$row.remove();
 
 		//Checks to see if there are any added rows, if not hide the submit button
 		if(table.find('tfoot tr').size() == 1) {
@@ -541,6 +544,9 @@ var AjaxCrud = function (config) {
 			}
 			var isValidContainer = formValidation.isValidContainer($container);
 			if (isValidContainer === false || isValidContainer === null) {
+			    if (isValidContainer === false)
+			    	$.unblockUI();
+			    
 			    // Stop submission because of validation error.
 			    return isValidContainer;
 
