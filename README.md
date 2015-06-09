@@ -12,7 +12,14 @@ See example code for examples of implementation
 
 **Recommendations in code:**
 - An 'App.activate' function in the style of /laravel-example/public/js/behaviour/general.js
-    
+
+**Hooks:**
+- saveRowRequestDone
+- editRowRequestDone
+- addNewRowRequestDone
+- saveNewRowsRequestDone
+- deleteNewRowDone
+
 **Event class documentation:**
 - '.ads-edit-row' replaces the current row with an editable row
 - '.ads-prep-del-row' opens the delete modal and populates it with info from the current row
