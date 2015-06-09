@@ -6,6 +6,11 @@ var AjaxCrud = function (config) {
 	var formValidation;
 	if (typeof(form) != "undefined") {
 		formValidation = form.data('formValidation');
+		
+		if ($('[id='+form.attr('id')+']').length > 1) {
+ 			console.warn('Form Validation will have problems, duplicate IDs detected!');
+ 		}
+		
 	}
 	var dataTable = table.DataTable(config.datatableArgs);
 
@@ -18,6 +23,18 @@ var AjaxCrud = function (config) {
 		urlAjaxRowsPost: config.urls.urlAjaxRowsPost,
 		urlAjaxSortPut: ""
 	};	
+
+	table.find('tbody td').each( function() {
+		if (typeof($(this).attr('data-order')) == 'undefined' || $(this).attr('data-order').length < 1) {
+			$(this).attr('data-order', $(this).text());
+		}
+	});
+
+	form.on('changeDate', '.value-field', function(event) {
+		if(typeof(formValidation) != "undefined") {
+			formValidation.revalidateField($(this));
+		}
+	});
 
 	table.on('click', '.ads-edit-row', function (event) {
 		event.preventDefault();
@@ -41,6 +58,19 @@ var AjaxCrud = function (config) {
 		event.preventDefault();
 		saveRow(event);
 
+	});
+
+	table.on('keypress', 'input', function (event) {
+		// Make the default action of hitting enter to attempt to save the current row
+		if (event.which == '13') {
+			var $row = $(event.target).closest('tr');
+			event.preventDefault();
+			if ($row.attr('data-id') > 0)
+				saveRow(event);
+			else
+				addNewRow(event);
+			return false;			
+		}
 	});
 
 	table.on('click', '.ads-cancel-row', function (event) {
@@ -81,23 +111,34 @@ var AjaxCrud = function (config) {
 		config.hooks = {};
 	}
 
-	function saveRow (event) {
-		 // FormValidation instance
+	function saveRow (event, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+		
+		// FormValidation instance
 	    var $row = $(event.target).closest('tr');
 
-		if (!validationIsValid($row)) {
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($row, recursive) == null) {
 		    // Stop submission because of validation error.
+		    setTimeout(function() {saveRow(event, true)}, 150);
 		    return false;
+
+		} else if (validationIsValid($row, recursive) == false) {
+			return false;
+			
 		}
 
 		var id = $row.attr('data-id');
-
+		
 		var putData = {};
 		$row.find('.value-field').each( function() {
 			putData[$(this).attr('name')] = $(this).val();
 		});
-
-		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "PUT",
@@ -108,8 +149,19 @@ var AjaxCrud = function (config) {
 
 		request.done(function( html ) {
 			validationResetFields($row.find('.value-field'));
+			var $rowIndex = dataTable.row($row).index();
+	
+			validationResetFields($row.find('.value-field'));
+	
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			dataTable.row($rowIndex).data($data).draw(false);
 
-			$row = $(html).replaceAll($row);
+			applyHook('saveRowRequestDone', {"$row": $row});
 
 			activateJs($row);
 			$.unblockUI();
@@ -133,12 +185,22 @@ var AjaxCrud = function (config) {
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxEditableRowGet.replace("_id_", id),
-			cache: false,
-
+			cache: false
 		});
 
 		request.done(function( html ) {
-			$row = $(html).replaceAll($row);
+			var $row = $(event.target).closest('tr');
+			var $rowIndex = dataTable.row($row).index();
+	
+			validationResetFields($row.find('.value-field'));
+	
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			dataTable.row($rowIndex).data($data).draw(false);
 
 			activateJs($row);
 
@@ -146,7 +208,7 @@ var AjaxCrud = function (config) {
 
 			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
 
-			validationIsValid($row);
+			applyHook('editRowRequestDone', {"$row": $row});
 
 			$.unblockUI();
 		});
@@ -172,9 +234,19 @@ var AjaxCrud = function (config) {
 			});
 
 		request.done(function( html ) {
+			var $rowIndex = dataTable.row($row).index();
+			
 			validationResetFields($row.find('.value-field'));
 
-			$row = $(html).replaceAll($row);
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			dataTable.row($rowIndex).data($data).draw(false);
+
+			// $row = $(html).replaceAll($row);
 
 			activateJs($row);
 
@@ -208,7 +280,7 @@ var AjaxCrud = function (config) {
 		request.done(function( html ) {
 			dataTable.row(table.find('tr[data-id="' + id + '"]'))
         		.remove()
-        		.draw();
+        		.draw(false);
 
 			$.unblockUI();
 
@@ -247,7 +319,7 @@ var AjaxCrud = function (config) {
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxNewRowGet,
-			cache: false,
+			cache: false
 		});
 
 		request.done(function( html ) {
@@ -262,7 +334,7 @@ var AjaxCrud = function (config) {
 
 			applyHook('addNewRowRequestDone', {"$row": $row});
 
-			validationIsValid($row);
+			//validationIsValid($row);
 
 			$.unblockUI();
 		});
@@ -274,12 +346,25 @@ var AjaxCrud = function (config) {
 
 	}
 
-	function saveNewRows (event) {
-		var $tfoot = table.find('tfoot');
+	function saveNewRows (event, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
 
-		if (!validationIsValid($tfoot)) {
+		var $tfoot = table.find('tfoot');
+		
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($tfoot, recursive) == null) {
 		    // Stop submission because of validation error.
+		    setTimeout(function() {saveRow(event, true)}, 150);
 		    return false;
+
+		} else if (validationIsValid($tfoot, recursive) == false) {
+			return false;
+			
 		}
 
 		$.blockUI({ message: '' });
@@ -289,7 +374,6 @@ var AjaxCrud = function (config) {
 			var newRowData = {};
 			$(this).find('.value-field').each(function (index, element) {
 				newRowData[$(this).attr('name')] = $(this).val();
-
 			});
 			newRowsData[index] = newRowData;
 
@@ -320,7 +404,7 @@ var AjaxCrud = function (config) {
 
 			$(newRows).each( function (index, element) {
 				if($(this).context.nodeName != "#text") {
-					var row = dataTable.row.add($(this)).draw().node();
+					var row = dataTable.row.add($(this)).draw(false).node();
 					activateJs($(row));
 				}
 			});
@@ -341,9 +425,13 @@ var AjaxCrud = function (config) {
 
 	function deleteNewRow (event) {
 		var $row = $(event.target).closest('tr');
+		var $rowIndex = dataTable.row($row).index();
+
+		console.log('a');
 
 		validationResetFields($row.find('.value-field'));
 
+		// dataTable.row($rowIndex).remove().draw(false);
 		$row.remove();
 
 		//Checks to see if there are any added rows, if not hide the submit button
@@ -441,18 +529,26 @@ var AjaxCrud = function (config) {
 		}
 	}
 
-	function validationIsValid($container) {
+	function validationIsValid($container, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+
 		if(typeof(formValidation) == "undefined") {
 			return true;
 
 		} else {
 			// Validate the container
-			formValidation.validateContainer($container);
+			if(recursive === false) {
+				formValidation.validateContainer($container);	
+			}
 			var isValidContainer = formValidation.isValidContainer($container);
 			if (isValidContainer === false || isValidContainer === null) {
-			    // Stop submission because of validation error.
-			    return false;
+			    if (isValidContainer === false)
+			    	$.unblockUI();
 			    
+			    // Stop submission because of validation error.
+			    return isValidContainer;
 
 			} else {
 				return true;
@@ -481,6 +577,15 @@ var AjaxCrud = function (config) {
 	function activateJs($parent) {
 		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
 			App.activate($parent);
-		} 
+		}
+	}
+	
+	return {
+		form: form,
+		table: table,
+		createInitButton: createInitButton,
+		formValidation: formValidation,
+		dataTable: dataTable,
+		urls: urls
 	}
 }
