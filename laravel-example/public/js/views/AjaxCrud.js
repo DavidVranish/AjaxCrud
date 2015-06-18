@@ -137,7 +137,9 @@ var AjaxCrud = function (config) {
 		
 		var putData = {};
 		$row.find('.value-field').each( function() {
-			putData[$(this).attr('name')] = $(this).val();
+			if (!($(this).is(':checkbox')) || $(this).is(':checked')) {			
+				putData[$(this).attr('name')] = $(this).val();
+			}
 		});
 
 		var request = $.ajax({
@@ -373,7 +375,9 @@ var AjaxCrud = function (config) {
 		table.find('tfoot tr.edit-row').each(function(index, element) {
 			var newRowData = {};
 			$(this).find('.value-field').each(function (index, element) {
-				newRowData[$(this).attr('name')] = $(this).val();
+				if (!$(this).is(':checkbox') || $(this).is(':checked')) {			
+					newRowData[$(this).attr('name')] = $(this).val();
+				}
 			});
 			newRowsData[index] = newRowData;
 
