@@ -3,7 +3,25 @@ var AjaxCrud = function (config) {
 	var form = config.form; //$("form#create")
 	var table = config.table; //$("table#customers")
 	var createInitButton = config.createInitButton //$('button.js-create-init')
+	var sortButton = config.sortButton;
 	var formValidation;
+
+	table.on( 'draw.dt', function () {
+        table.find('tbody td[data-colspan]').each(function (index, element) {
+            var colspan = $(element).attr('data-colspan');
+            if($(element).attr('colspan') != colspan) {
+            	for(i = 0; i < (colspan - 1); i++) {
+	                $(element).next().remove();
+	            }
+	            $(element).attr('colspan', colspan);	
+            }
+            
+        });
+    });
+
+	var dataTable = table.DataTable(config.datatableArgs);
+	var sortMode = 'view';
+
 	if (typeof(form) != "undefined") {
 		formValidation = form.data('formValidation');
 		
@@ -12,7 +30,6 @@ var AjaxCrud = function (config) {
  		}
 		
 	}
-	var dataTable = table.DataTable(config.datatableArgs);
 
 	var urls = {
 		urlAjaxRowGet: config.urls.urlAjaxRowGet,
@@ -21,20 +38,26 @@ var AjaxCrud = function (config) {
 		urlAjaxNewRowGet: config.urls.urlAjaxNewRowGet,
 		urlAjaxRowDelete: config.urls.urlAjaxRowDelete,
 		urlAjaxRowsPost: config.urls.urlAjaxRowsPost,
-		urlAjaxSortPut: ""
+		urlAjaxModalPut: config.urls.urlAjaxModalPut,
+		urlAjaxModalPost: config.urls.urlAjaxModalPost,
+		urlAjaxNewModalGet: config.urls.urlAjaxNewModalGet,
+		urlAjaxEditableModalGet: config.urls.urlAjaxEditableModalGet,
+		urlAjaxSortPut: config.urls.urlAjaxSortPut
 	};	
 
-	table.find('tbody td').each( function() {
-		if (typeof($(this).attr('data-order')) == 'undefined' || $(this).attr('data-order').length < 1) {
-			$(this).attr('data-order', $(this).text());
+	table.find('tbody td').each( function (index, element) {
+		if (typeof($(element).attr('data-order')) == 'undefined' || $(element).attr('data-order').length < 1) {
+			$(element).attr('data-order', $(element).text());
 		}
 	});
 
-	form.on('changeDate', '.value-field', function(event) {
-		if(typeof(formValidation) != "undefined") {
-			formValidation.revalidateField($(this));
-		}
-	});
+	if (typeof(form) != "undefined") {
+		form.on('changeDate', '.value-field', function(event) {
+			if(typeof(formValidation) != "undefined") {
+				formValidation.revalidateField($(event.target));
+			}
+		});
+	}
 
 	table.on('click', '.ads-edit-row', function (event) {
 		event.preventDefault();
@@ -97,18 +120,62 @@ var AjaxCrud = function (config) {
 
 	});
 
+	table.on('click', '.ads-edit-modal', function (event) {
+		event.preventDefault();
+		editModal(event);
+
+	});
+
+	$('#edit-modal').on('click', '.ads-save-modal', function (event) {
+		event.preventDefault();
+		saveModal(event);
+
+	});
+
+	$('#edit-modal').on('click', '.md-close', function (event) {
+		event.preventDefault();
+		$("#edit-modal").niftyModal("hide");
+
+	});
+
+	$('#new-modal').on('click', '.ads-save-new-modal', function (event) {
+		event.preventDefault();
+		saveNewModal(event);
+
+	});
+
+	$('#new-modal').on('click', '.md-close', function (event) {
+		event.preventDefault();
+		$('#new-modal').niftyModal("hide");
+
+	});	
+
 	if (typeof(createInitButton) != "undefined") {
 		createInitButton.click(function (event) {
 			event.preventDefault();
-			$(event.target).hide();
-			table.find('tfoot tr:last').show();
-			addNewRow();
+			if($(event.target).hasClass('new-modal')) {
+				addNewModal(event);
+			} else {
+				createInitButton.hide();
+				table.find('tfoot tr:last').show();
+				addNewRow(event);	
+			}
+		});
+	}
 
+	if (typeof(sortButton) != "undefined") {
+		sortButton.click(function (event) {
+			event.preventDefault();
+			sortRows(event);
 		});
 	}
 
 	if (typeof(config.hooks) == "undefined") {
 		config.hooks = {};
+	}
+
+	if (typeof(config.filters) == "undefined") {
+		config.filters = {};
 	}
 
 	function saveRow (event, recursive) {
@@ -132,28 +199,32 @@ var AjaxCrud = function (config) {
 			return false;
 			
 		}
-
-		var id = $row.attr('data-id');
 		
-		var putData = {};
-		$row.find('.value-field').each( function() {
-			if (!($(this).is(':checkbox')) || $(this).is(':checked')) {			
-				putData[$(this).attr('name')] = $(this).val();
+		var id = applyFilter('saveRowId', $row.attr('data-id'), {'$row': $row});
+		
+		var data = {};
+		$row.find('.value-field').each(function (index, element) {
+			if (!($(element).is(':checkbox')) || $(element).is(':checked')) {			
+				data[$(element).attr('name')] = $(element).val();
 			}
 		});
 
+		data = applyFilter('saveRowData', data, {'$row': $row, 'id': id});;
+
+		var url = applyFilter('saveRowUrl', urls.urlAjaxRowPut.replace("_id_", id), {'$row': $row, 'id': id, 'data': data});
+
 		var request = $.ajax({
 			method: "PUT",
-			url: urls.urlAjaxRowPut.replace("_id_", id),
+			url: url,
 			cache: false,
-			data: putData
+			data: data
 			});
 
 		request.done(function( html ) {
 			validationResetFields($row.find('.value-field'));
 			var $rowIndex = dataTable.row($row).index();
 	
-			validationResetFields($row.find('.value-field'));
+			revertColspan($row);
 	
 			$html = $($.parseHTML($.trim(html)));
 			
@@ -181,12 +252,15 @@ var AjaxCrud = function (config) {
 	function editRow (event) {
 		var $row = $(event.target).closest('tr');
 		var id = $row.attr('data-id');
+		var data = {};
 
+		data = applyFilter('editRowDataFilter', data, {'$row': $row});
 		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxEditableRowGet.replace("_id_", id),
+			data: data,
 			cache: false
 		});
 
@@ -208,7 +282,7 @@ var AjaxCrud = function (config) {
 
 			validationAddFields($row.find('.value-field'));
 
-			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
+			focusInput($row);
 
 			applyHook('editRowRequestDone', {"$row": $row});
 
@@ -226,12 +300,16 @@ var AjaxCrud = function (config) {
 	function cancelRow (event) {
 		var $row = $(event.target).closest('tr');
 		var id = $row.attr('data-id');
+		var data = {};
+
+		data = applyFilter('cancelRowDataFilter', data, {'$row': $row});
 
 		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxRowGet.replace("_id_", id),
+			data: data,
 			cache: false
 			});
 
@@ -240,6 +318,7 @@ var AjaxCrud = function (config) {
 			
 			validationResetFields($row.find('.value-field'));
 
+			revertColspan($row);
 			$html = $($.parseHTML($.trim(html)));
 			
 			$dRow = dataTable.row.add($html);
@@ -251,6 +330,8 @@ var AjaxCrud = function (config) {
 			// $row = $(html).replaceAll($row);
 
 			activateJs($row);
+
+			applyHook('cancelRowRequestDone', {"$row": $row});
 
 			$.unblockUI();
 
@@ -271,16 +352,21 @@ var AjaxCrud = function (config) {
 			id = $(event.target).closest('a').attr('data-id');
 		}
 		
+		var data = {};
+		data = applyFilter('deleteRowDataFilter', data, {'id': id, event: event});
+
 		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "DELETE",
 			url: urls.urlAjaxRowDelete.replace("_id_", id),
+			data: data,
 			cache: false
 		});
 
 		request.done(function( html ) {
-			dataTable.row(table.find('tr[data-id="' + id + '"]'))
+			var $row = applyFilter('deleteRowRowFilter', table.find('tr[data-id="' + id + '"]'), {'id': id, event: event});
+			dataTable.row($row)
         		.remove()
         		.draw(false);
 
@@ -308,6 +394,9 @@ var AjaxCrud = function (config) {
 
 		//$( "body" ).off( "click", "#delete-modal .ads-delete");
 		$("#delete-modal .ads-delete").off('click.delete');
+
+		applyHook('prepareDeleteRowDone', {'$row': $row});
+
 		$("#delete-modal .ads-delete").on('click.delete', function (event) { 
 			deleteRow (event);
 		});
@@ -316,11 +405,15 @@ var AjaxCrud = function (config) {
 	function addNewRow (event) {
 		var $row = table.find('tfoot tr:last');
 
+		var data = {};
+		data = applyFilter('addNewRowDataFilter', data, {'event': event});
+
 		$.blockUI({ message: '' });
 
 		var request = $.ajax({
 			method: "GET",
 			url: urls.urlAjaxNewRowGet,
+			data: data,
 			cache: false
 		});
 
@@ -332,9 +425,9 @@ var AjaxCrud = function (config) {
 
 			validationAddFields($row.find('.value-field'));
 
-			$row.find( "input.focus-field, select.focus-field, textarea.focus-field" ).focus();
+			focusInput($row);
 
-			applyHook('addNewRowRequestDone', {"$row": $row});
+			applyHook('addNewRowRequestDone', {"$row": $row,});
 
 			//validationIsValid($row);
 
@@ -372,11 +465,11 @@ var AjaxCrud = function (config) {
 		$.blockUI({ message: '' });
 
 		var newRowsData = {};
-		table.find('tfoot tr.edit-row').each(function(index, element) {
+		table.find('tfoot tr.edit-row').each(function (index, element) {
 			var newRowData = {};
-			$(this).find('.value-field').each(function (index, element) {
-				if (!$(this).is(':checkbox') || $(this).is(':checked')) {			
-					newRowData[$(this).attr('name')] = $(this).val();
+			$(element).find('.value-field').each(function (index, element) {
+				if (!$(element).is(':checkbox') || $(element).is(':checked')) {			
+					newRowData[$(element).attr('name')] = $(element).val();
 				}
 			});
 			newRowsData[index] = newRowData;
@@ -394,7 +487,7 @@ var AjaxCrud = function (config) {
 
 		request.done(function( html ) {
 			table.find('tfoot tr.edit-row').each( function (index, element) {
-				validationResetFields($(this).find('.value-field'));
+				validationResetFields($(element).find('.value-field'));
 			});
 
 			table.find('tfoot tr.edit-row').remove();
@@ -407,8 +500,8 @@ var AjaxCrud = function (config) {
 			var newRows = $.parseHTML($.trim(html));
 
 			$(newRows).each( function (index, element) {
-				if($(this).context.nodeName != "#text") {
-					var row = dataTable.row.add($(this)).draw(false).node();
+				if($(element).context.nodeName != "#text") {
+					var row = dataTable.row.add($(element)).draw(false).node();
 					activateJs($(row));
 				}
 			});
@@ -431,8 +524,6 @@ var AjaxCrud = function (config) {
 		var $row = $(event.target).closest('tr');
 		var $rowIndex = dataTable.row($row).index();
 
-		console.log('a');
-
 		validationResetFields($row.find('.value-field'));
 
 		// dataTable.row($rowIndex).remove().draw(false);
@@ -452,57 +543,58 @@ var AjaxCrud = function (config) {
 
 	function sortRows (event) {
 		//If button is 'Change Sort Order'
-		if( $(event.target).attr('data-mode') == "sort" ) {
+		if(sortMode == "view") {
 
 			//Resets the DataTable sort to use the sort_order database field
-			$('table.packaging_sizes').DataTable().order([0, 'asc']).draw();
+			dataTable.order([0, 'asc']).draw();
 
 			//Updates the wording of the 'Change Sort Order' button and updates table styles to give a visual indicator
-			$(event.target).attr('data-mode', 'save');
+			sortMode = "sort";
 			$(event.target).html('Save Sort Order');
-			$('table.packaging_sizes tbody tr').addClass('sort-row');
 			//Fix for Chrome styling error
-			$('table.packaging_sizes tbody').addClass('sort-body');
-			$('table.packaging_sizes tbody tr td:last-of-type').addClass('sort-column');
+			table.find('tbody').addClass('sort-body');
+			table.find('tbody tr td:last-of-type').addClass('sort-column');
 
 
 
 			//Sets the table body as sortable, disables selection of text and enables sorting
-			$('table.packaging_sizes tbody').sortable({
+			table.find('tbody').sortable({
 				helper: function(e, tr) {
 				    var $originals = tr.children();
 				    var $helper = tr.clone();
-				    $helper.children().each(function(index)
+				    $helper.children().each(function (index, element)
 				    {
 				      // Set helper cell sizes to match the original sizes
-				      $(this).width($originals.eq(index).width());
+				      $(element).width($originals.eq(index).width());
 				    });
 					$helper.find(".sort-column").removeClass('sort-column');
 
 				    return $helper;
 			  	}
 			});
-			$("table.packaging_sizes tbody").sortable("enable");
-			$('table.packaging_sizes tbody').disableSelection();
+			table.find('tbody').sortable("enable");
+			table.find('tbody').disableSelection();
 
 		//If button is 'Save Sort Order'
 		} else {
 
 			//Reverts the text of the 'Save Sort Order' button and the table styles
-			$(event.target).attr('data-mode', 'sort');
+			sortMode = "view";
 			$(event.target).html('Change Sort Order');
-			$('table.packaging_sizes tbody tr').removeClass('sort-row');
-			//Fix for Chrome styling error
-			$('table.packaging_sizes tbody').removeClass('sort-body');
-			$('table.packaging_sizes tbody tr td:last-of-type').removeClass('sort-column');
+
+			table.find('tbody').removeClass('sort-body');
+			table.find('tbody tr td:last-of-type').removeClass('sort-column');
 
 
 			//Disables sorting and enables text selection
-			$("table.packaging_sizes tbody").sortable("disable");
-			$('table.packaging_sizes tbody').enableSelection();
+			table.find('tbody').sortable("disable");
+			table.find('tbody').enableSelection();
 
 			//Gets an array of ids in the order the user sorted them
-			var ids = $('table.packaging_sizes tbody').sortable("toArray", { attribute: "data-id" });
+			//Gets an array of ids in the order the user sorted them
+			var sortable = table.find('tbody').sortable( "instance" );
+			var ids = sortable.toArray({attribute: "data-id"});
+			var data = applyFilter('sortRowsDataFilter', {ids: ids}, {sortable: sortable});
 
 			$.blockUI({ message: '' });
 
@@ -510,7 +602,7 @@ var AjaxCrud = function (config) {
 				method: "PUT",
 				url: urls.urlAjaxSortPut,
 				cache: false,
-				data: { ids: ids}
+				data: data
 				});
 
 			request.done(function( html ) {
@@ -527,11 +619,246 @@ var AjaxCrud = function (config) {
 		}
 	}
 
+	function editModal(event) {
+		var $row = $(event.target).closest('tr');
+		var $modal = $('#edit-modal');
+		var id = $row.attr('data-id');
+
+		$.blockUI({ message: '' });
+
+		var request = $.ajax({
+			method: "GET",
+			url: urls.urlAjaxEditableModalGet.replace("_id_", id),
+			cache: false
+		});
+
+		request.done(function( html ) {
+			$modal.html(html);
+	
+			validationResetFields($modal.find('.value-field'));
+
+			activateJs($modal);
+
+			$modal.trigger('create');
+
+			validationAddFields($modal.find('.value-field'));
+
+			focusInput($modal);
+
+			applyHook('editModalRequestDone', {"$modal": $modal});
+
+			$.unblockUI();
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
+	}
+
+	function saveModal(event, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+		
+		// FormValidation instance
+	    var $modal = $('#edit-modal');
+
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($modal, recursive) == null) {
+		    // Stop submission because of validation error.
+		    setTimeout(function() {saveModal(event, true)}, 150);
+		    return false;
+
+		} else if (validationIsValid($modal, recursive) == false) {
+			return false;
+			
+		}
+
+		var id = $(event.target).attr('data-id');
+		var $row = table.find('tr[data-id="' + id + '"]');
+		var putData = {};
+		$modal.find('.value-field').each(function (index, element) {
+			if (!($(element).is(':checkbox')) || $(element).is(':checked')) {			
+				putData[$(element).attr('name')] = $(element).val();
+			}
+		});
+
+		var request = $.ajax({
+			method: "PUT",
+			url: urls.urlAjaxModalPut.replace("_id_", id),
+			cache: false,
+			data: putData
+			});
+
+		request.done(function( html ) {
+			validationResetFields($modal.find('.value-field'));
+			
+			var $rowIndex = dataTable.row($row).index();
+	
+			$html = $($.parseHTML($.trim(html)));
+			
+			$dRow = dataTable.row.add($html);
+			$data = $dRow.data();
+			$dRow.remove();
+			
+			$row = dataTable.row($rowIndex).data($data).draw(false).node();
+			$row = $($row);
+
+			$("#edit-modal").niftyModal("hide");
+
+			applyHook('saveModalRequestDone', {"$modal": $modal});
+
+			activateJs($row);
+			$.unblockUI();
+
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
+
+
+	}
+
+	function addNewModal(event) {
+		var $modal = $('#new-modal');
+
+		$.blockUI({ message: '' });
+
+		var request = $.ajax({
+			method: "GET",
+			url: urls.urlAjaxNewModalGet,
+			cache: false
+		});
+
+		request.done(function( html ) {
+			$modal.html(html);
+
+			activateJs($modal);
+
+			validationAddFields($modal.find('.value-field'));
+
+			focusInput($modal);
+
+			applyHook('addNewModalRequestDone', {"$modal": $modal});
+
+			$.unblockUI();
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+		});
+	}
+
+	function saveNewModal(event, recursive) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+
+		var $modal = $('#new-modal');
+		
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($modal, recursive) == null) {
+		    // Stop submission because of validation error.
+		    setTimeout(function() {saveNewModal(event, true)}, 150);
+		    return false;
+
+		} else if (validationIsValid($modal, recursive) == false) {
+			return false;
+			
+		}
+
+		$.blockUI({ message: '' });
+
+		var putData = {};
+		$modal.find('.value-field').each(function (index, element) {
+			if (!($(element).is(':checkbox')) || $(element).is(':checked')) {			
+				putData[$(element).attr('name')] = $(element).val();
+			}
+		});
+
+		var request = $.ajax({
+			method: "POST",
+			url: urls.urlAjaxModalPost,
+			data: putData,
+			cache: false
+		});
+
+		request.done(function( html ) {
+			$modal.each( function (index, element) {
+				validationResetFields($(element).find('.value-field'));
+			});
+
+			var newRows = $.parseHTML($.trim(html));
+
+			$(newRows).each( function (index, element) {
+				if($(element).context.nodeName != "#text") {
+					var row = dataTable.row.add($(element)).draw(false).node();
+					activateJs($(row));
+				}
+			});
+
+			$("#new-modal").niftyModal("hide");
+
+			//Hook Call
+			applyHook('saveNewModalRequestDone', {"$modal": $modal});
+
+			$.unblockUI();
+
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
+
+	}
+
+	function revertColspan($row) {
+		$row.find('td[data-colspan]').each(function (index, element) {
+			var $elem = $(element);
+			var colspan = $elem.attr('data-colspan');
+
+			if($elem.attr('colspan') == colspan) {
+				var elemIndex = dataTable.cell($elem).index().column;
+				var rowData = dataTable.row($row).data();
+				$elem.attr('colspan', '');
+
+				for(i = 0; i < (colspan - 1); i++) {
+					elemIndex++;
+					$elem.after('<td>' + rowData[elemIndex] + '</td>');
+					$elem = $elem.next();
+				}
+			}
+		});
+	}
+
 	function applyHook(hook, args) {
 		if(!(typeof(config.hooks[hook]) == "undefined")) {
 			config.hooks[hook](args);
 		}
 	}
+
+	function applyFilter(filter, def, args) {
+		if(!(typeof(config.filters[filter]) == "undefined")) {
+			return config.filters[filter](def, args);
+		} else {
+			return def;
+		}
+	}
+
 
 	function validationIsValid($container, recursive) {
 		if(typeof(recursive) == "undefined") {
@@ -565,7 +892,7 @@ var AjaxCrud = function (config) {
 	function validationAddFields($fields) {
 		if(typeof(formValidation) != "undefined") {
 			$fields.each( function (index, element) {
-				formValidation.addField($(this));
+				formValidation.addField($(element));
 			});
 		}
 	}
@@ -573,10 +900,19 @@ var AjaxCrud = function (config) {
 	function validationResetFields($fields) {
 		if(typeof(formValidation) != "undefined") {
 			$fields.each( function (index, element) {
-				formValidation.resetField($(this));
+				formValidation.resetField($(element));
 			});
 		}
 	}
+
+	function focusInput($row) {
+		$input = $row.find('.focus-field');
+		if($input.hasClass('select2')) {
+			$input.select2('open');
+		} else {
+			$input.focus();
+ 		}
+ 	}
 
 	function activateJs($parent) {
 		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
