@@ -4,20 +4,20 @@
         "Read more about it at https://getcomposer.org/doc/01-basic-usage.md#composer-lock-the-lock-file",
         "This file is @generated automatically"
     ],
-    "hash": "e0d9bf98cd8f834f0a5f41779a986aba",
+    "hash": "225f6b55549f605b00056bb175580853",
     "packages": [
         {
             "name": "matthiasmullie/minify",
-            "version": "1.3.26",
+            "version": "dev-compile",
             "source": {
                 "type": "git",
-                "url": "https://github.com/matthiasmullie/minify.git",
-                "reference": "15e564ff494186cddefd82fa9424897a66a50051"
+                "url": "http://github.com/scs-ben/minify.git",
+                "reference": "4935e725a49db37f35ca87bdb775ea7f7822d578"
             },
             "dist": {
                 "type": "zip",
-                "url": "https://api.github.com/repos/matthiasmullie/minify/zipball/15e564ff494186cddefd82fa9424897a66a50051",
-                "reference": "15e564ff494186cddefd82fa9424897a66a50051",
+                "url": "https://api.github.com/repos/scs-ben/minify/zipball/4935e725a49db37f35ca87bdb775ea7f7822d578",
+                "reference": "4935e725a49db37f35ca87bdb775ea7f7822d578",
                 "shasum": ""
             },
             "require": {
@@ -40,28 +40,30 @@
                     "MatthiasMullie\\Minify\\": "src/"
                 }
             },
-            "notification-url": "https://packagist.org/downloads/",
             "license": [
                 "MIT"
             ],
             "authors": [
                 {
                     "name": "Matthias Mullie",
-                    "email": "minify@mullie.eu",
                     "homepage": "http://www.mullie.eu",
+                    "email": "minify@mullie.eu",
                     "role": "Developer"
                 }
             ],
             "description": "CSS & JS minifier",
             "homepage": "http://www.minifier.org",
             "keywords": [
-                "JS",
                 "css",
                 "javascript",
+                "js",
                 "minifier",
                 "minify"
             ],
-            "time": "2015-05-13 16:03:46"
+            "support": {
+                "source": "https://github.com/scs-ben/minify/tree/compile"
+            },
+            "time": "2015-07-20 13:45:43"
         },
         {
             "name": "matthiasmullie/path-converter",
@@ -117,7 +119,9 @@
     "packages-dev": [],
     "aliases": [],
     "minimum-stability": "stable",
-    "stability-flags": [],
+    "stability-flags": {
+        "matthiasmullie/minify": 20
+    },
     "prefer-stable": false,
     "prefer-lowest": false,
     "platform": [],

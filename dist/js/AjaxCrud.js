@@ -929,5 +929,3 @@ var AjaxCrud = function (config) {
 		urls: urls
 	}
 }
-
-;

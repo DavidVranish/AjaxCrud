@@ -1,5 +1,12 @@
 {
-    "require": {
-        "matthiasmullie/minify": "^1.3"
-    }
+	"repositories":
+	[
+	    {
+	        "type": "git",
+	        "url": "http://github.com/scs-ben/minify.git"
+	    }
+	],
+	"require": {
+	    "matthiasmullie/minify": "dev-compile"
+	}
 }

@@ -9,7 +9,7 @@
   "main": "dist/js/AjaxCrud.min.js",
   "dependencies": {
     "datatables": "~1.10.*",
-    "jquery-niftymodals": "git@github.com:adamcolejenkins/jquery-niftymodals.git"
+    "jquery-niftymodals": "git@github.com:adamcolejenkins/jquery-niftymodals.git",
   },
   "license": "MIT",
   "ignore": [
