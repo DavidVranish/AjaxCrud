@@ -40,4 +40,9 @@ See example code for examples of implementation
 
 **Required attributes documentation:**
 - 'data-id' Must be set for editable and non-editable rows (not new rows) must be set to the database row id
-    
+
+**Development Information:**
+- When running composer, use these options:
+```
+composer update --profile --prefer-source
+```
