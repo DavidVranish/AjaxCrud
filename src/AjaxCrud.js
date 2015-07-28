@@ -4,6 +4,7 @@ var AjaxCrud = function (config) {
 	var table = config.table; //$("table#customers")
 	var createInitButton = config.createInitButton //$('button.js-create-init')
 	var sortButton = config.sortButton;
+	var cancelSortButton = config.cancelSortButton;
 	var formValidation;
 
 	table.on( 'draw.dt', function () {
@@ -17,6 +18,14 @@ var AjaxCrud = function (config) {
             }
             
         });
+
+        if (typeof(dataTable) != "undefined" && typeof(sortButton) != "undefined") {
+	        if($.trim(dataTable.search()) == "") {
+	        	sortButton.show();
+	        } else {
+	        	sortButton.hide();
+	        }
+	    }
     });
 
 	var dataTable = table.DataTable(config.datatableArgs);
@@ -123,38 +132,33 @@ var AjaxCrud = function (config) {
 	table.on('click', '.ads-edit-modal', function (event) {
 		event.preventDefault();
 		editModal(event);
+		$('#edit-modal').off();
+		$('#edit-modal').on('click', '.ads-save-modal', function (event) {
+			event.preventDefault();
+			saveModal(event);
 
+		});
+		$('#edit-modal').on('click', '.md-close', function (event) {
+			event.preventDefault();
+			$("#edit-modal").niftyModal("hide");
+
+		});
 	});
-
-	$('#edit-modal').on('click', '.ads-save-modal', function (event) {
-		event.preventDefault();
-		saveModal(event);
-
-	});
-
-	$('#edit-modal').on('click', '.md-close', function (event) {
-		event.preventDefault();
-		$("#edit-modal").niftyModal("hide");
-
-	});
-
-	$('#new-modal').on('click', '.ads-save-new-modal', function (event) {
-		event.preventDefault();
-		saveNewModal(event);
-
-	});
-
-	$('#new-modal').on('click', '.md-close', function (event) {
-		event.preventDefault();
-		$('#new-modal').niftyModal("hide");
-
-	});	
 
 	if (typeof(createInitButton) != "undefined") {
 		createInitButton.click(function (event) {
 			event.preventDefault();
-			if($(event.target).hasClass('new-modal')) {
+			if($(event.target).hasClass('new-modal')) {			
 				addNewModal(event);
+				$('#new-modal').off();
+				$('#new-modal').on('click', '.ads-save-new-modal', function (event) {
+					event.preventDefault();
+					saveNewModal(event);
+				});
+				$('#new-modal').on('click', '.md-close', function (event) {
+					event.preventDefault();
+					$('#new-modal').niftyModal("hide");
+				});
 			} else {
 				createInitButton.hide();
 				table.find('tfoot tr:last').show();
@@ -167,6 +171,13 @@ var AjaxCrud = function (config) {
 		sortButton.click(function (event) {
 			event.preventDefault();
 			sortRows(event);
+		});
+	}
+
+	if (typeof(cancelSortButton) != "undefined") {
+		cancelSortButton.click(function (event) {
+			event.preventDefault();
+			cancelSortRows(event);
 		});
 	}
 
@@ -544,18 +555,22 @@ var AjaxCrud = function (config) {
 	function sortRows (event) {
 		//If button is 'Change Sort Order'
 		if(sortMode == "view") {
+			table.prev().find('.dataTables_filter').hide();
 
 			//Resets the DataTable sort to use the sort_order database field
-			dataTable.order([0, 'asc']).draw();
+			var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
+			dataTable.order([columnIndex, 'asc']).draw();
 
 			//Updates the wording of the 'Change Sort Order' button and updates table styles to give a visual indicator
 			sortMode = "sort";
-			$(event.target).html('Save Sort Order');
+			sortButton.html('Save Sort Order');
+			if(typeof(cancelSortButton) != "undefined") {
+				cancelSortButton.show();
+			}
+
 			//Fix for Chrome styling error
 			table.find('tbody').addClass('sort-body');
 			table.find('tbody tr td:last-of-type').addClass('sort-column');
-
-
 
 			//Sets the table body as sortable, disables selection of text and enables sorting
 			table.find('tbody').sortable({
@@ -575,12 +590,18 @@ var AjaxCrud = function (config) {
 			table.find('tbody').sortable("enable");
 			table.find('tbody').disableSelection();
 
+			table.on('order.dt', disableSorting);
+
 		//If button is 'Save Sort Order'
 		} else {
-
+			table.prev().find('.dataTables_filter').show();
 			//Reverts the text of the 'Save Sort Order' button and the table styles
 			sortMode = "view";
-			$(event.target).html('Change Sort Order');
+			sortButton.html('Change Sort Order');
+			if(typeof(cancelSortButton) != "undefined") {
+				cancelSortButton.hide();	
+			}
+			
 
 			table.find('tbody').removeClass('sort-body');
 			table.find('tbody tr td:last-of-type').removeClass('sort-column');
@@ -607,7 +628,8 @@ var AjaxCrud = function (config) {
 
 			request.done(function( html ) {
 				$.unblockUI();
-
+				applyHook('sortRowsRequestDone', {});
+				table.off('order.dt', disableSorting);
 			});
 
 			request.fail(function( jqXHR, textStatus ) {
@@ -616,6 +638,35 @@ var AjaxCrud = function (config) {
 
 			});
 
+		}
+	}
+
+	function cancelSortRows (event) {
+		sortMode = "view";
+		sortButton.html('Change Sort Order');
+		cancelSortButton.hide();
+		table.prev().find('.dataTables_filter').show();
+
+		table.find('tbody').sortable("destroy");
+		table.find('tbody').enableSelection();
+		table.find('tbody').removeClass('sort-body');
+		table.find('tbody tr td:last-of-type').removeClass('sort-column');
+
+		var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
+		dataTable.order([columnIndex, 'asc']).draw();
+		table.off('order.dt', disableSorting);
+	}
+
+	function disableSorting() {
+		var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
+		 
+		var order = dataTable.order();
+		if(order.length == 1) {
+			if(order[0][0] != columnIndex || order[0][1] != 'asc') {
+				dataTable.order([[columnIndex, "asc"]]).draw();
+			}
+		} else {
+			dataTable.order([[columnIndex, "asc"]]).draw();
 		}
 	}
 
