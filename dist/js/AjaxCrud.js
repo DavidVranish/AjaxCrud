@@ -6,6 +6,21 @@ var AjaxCrud = function (config) {
 	var sortButton = config.sortButton;
 	var cancelSortButton = config.cancelSortButton;
 	var formValidation;
+	var dataTable = table.DataTable(config.datatableArgs);
+	var sortMode = 'view';
+	var urls = {
+		urlAjaxRowGet: config.urls.urlAjaxRowGet,
+		urlAjaxRowPut: config.urls.urlAjaxRowPut,
+		urlAjaxEditableRowGet: config.urls.urlAjaxEditableRowGet,
+		urlAjaxNewRowGet: config.urls.urlAjaxNewRowGet,
+		urlAjaxRowDelete: config.urls.urlAjaxRowDelete,
+		urlAjaxRowsPost: config.urls.urlAjaxRowsPost,
+		urlAjaxModalPut: config.urls.urlAjaxModalPut,
+		urlAjaxModalPost: config.urls.urlAjaxModalPost,
+		urlAjaxNewModalGet: config.urls.urlAjaxNewModalGet,
+		urlAjaxEditableModalGet: config.urls.urlAjaxEditableModalGet,
+		urlAjaxSortPut: config.urls.urlAjaxSortPut
+	};
 
 	table.on( 'draw.dt', function () {
         table.find('tbody td[data-colspan]').each(function (index, element) {
@@ -28,8 +43,13 @@ var AjaxCrud = function (config) {
 	    }
     });
 
-	var dataTable = table.DataTable(config.datatableArgs);
-	var sortMode = 'view';
+	dataTable.draw();
+
+	table.find('tbody td').each( function (index, element) {
+		if (typeof($(element).attr('data-order')) == 'undefined' || $(element).attr('data-order').length < 1) {
+			$(element).attr('data-order', $(element).text());
+		}
+	});
 
 	if (typeof(form) != "undefined") {
 		formValidation = form.data('formValidation');
@@ -40,26 +60,61 @@ var AjaxCrud = function (config) {
 		
 	}
 
-	var urls = {
-		urlAjaxRowGet: config.urls.urlAjaxRowGet,
-		urlAjaxRowPut: config.urls.urlAjaxRowPut,
-		urlAjaxEditableRowGet: config.urls.urlAjaxEditableRowGet,
-		urlAjaxNewRowGet: config.urls.urlAjaxNewRowGet,
-		urlAjaxRowDelete: config.urls.urlAjaxRowDelete,
-		urlAjaxRowsPost: config.urls.urlAjaxRowsPost,
-		urlAjaxModalPut: config.urls.urlAjaxModalPut,
-		urlAjaxModalPost: config.urls.urlAjaxModalPost,
-		urlAjaxNewModalGet: config.urls.urlAjaxNewModalGet,
-		urlAjaxEditableModalGet: config.urls.urlAjaxEditableModalGet,
-		urlAjaxSortPut: config.urls.urlAjaxSortPut
-	};	
+	if (typeof(config.hooks) == "undefined") {
+		config.hooks = {};
+	}
 
-	table.find('tbody td').each( function (index, element) {
-		if (typeof($(element).attr('data-order')) == 'undefined' || $(element).attr('data-order').length < 1) {
-			$(element).attr('data-order', $(element).text());
+	if (typeof(config.filters) == "undefined") {
+		config.filters = {};
+	}
+
+	function revertColspan($row) {
+		$row.find('td[data-colspan]').each(function (index, element) {
+			var $elem = $(element);
+			var colspan = $elem.attr('data-colspan');
+
+			if($elem.attr('colspan') == colspan) {
+				var elemIndex = dataTable.cell($elem).index().column;
+				var rowData = dataTable.row($row).data();
+				$elem.attr('colspan', '');
+
+				for(i = 0; i < (colspan - 1); i++) {
+					elemIndex++;
+					$elem.after('<td>' + rowData[elemIndex] + '</td>');
+					$elem = $elem.next();
+				}
+			}
+		});
+	}
+
+	function applyHook(hook, args) {
+		if(!(typeof(config.hooks[hook]) == "undefined")) {
+			config.hooks[hook](args);
 		}
-	});
+	}
 
+	function applyFilter(filter, def, args) {
+		if(!(typeof(config.filters[filter]) == "undefined")) {
+			return config.filters[filter](def, args);
+		} else {
+			return def;
+		}
+	}
+
+	function focusInput($row) {
+		$input = $row.find('.focus-field');
+		if($input.hasClass('select2')) {
+			$input.select2('open');
+		} else {
+			$input.focus();
+ 		}
+ 	}
+
+	function activateJs($parent) {
+		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
+			App.activate($parent);
+		}
+	}
 	if (typeof(form) != "undefined") {
 		form.on('changeDate', '.value-field', function(event) {
 			if(typeof(formValidation) != "undefined") {
@@ -180,15 +235,6 @@ var AjaxCrud = function (config) {
 			cancelSortRows(event);
 		});
 	}
-
-	if (typeof(config.hooks) == "undefined") {
-		config.hooks = {};
-	}
-
-	if (typeof(config.filters) == "undefined") {
-		config.filters = {};
-	}
-
 	function saveRow (event, recursive) {
 		if(typeof(recursive) == "undefined") {
 			recursive = false;
@@ -238,12 +284,14 @@ var AjaxCrud = function (config) {
 			revertColspan($row);
 	
 			$html = $($.parseHTML($.trim(html)));
-			
 			$dRow = dataTable.row.add($html);
-			$data = $dRow.data();
+
+			dataTable.context[0].aoData[$rowIndex] = dataTable.context[0].aoData[$dRow.index()];
+
 			$dRow.remove();
-			
-			dataTable.row($rowIndex).data($data).draw(false);
+			dataTable.draw(false);
+
+			$row = $(dataTable.row($rowIndex).node());
 
 			applyHook('saveRowRequestDone', {"$row": $row});
 
@@ -282,12 +330,16 @@ var AjaxCrud = function (config) {
 			validationResetFields($row.find('.value-field'));
 	
 			$html = $($.parseHTML($.trim(html)));
-			
 			$dRow = dataTable.row.add($html);
-			$data = $dRow.data();
+
+			dataTable.context[0].aoData[$rowIndex]._aData = dataTable.context[0].aoData[$dRow.index()]._aData;
+			dataTable.context[0].aoData[$rowIndex].anCells = dataTable.context[0].aoData[$dRow.index()].anCells;
+			dataTable.context[0].aoData[$rowIndex].nTr = dataTable.context[0].aoData[$dRow.index()].nTr;
+
 			$dRow.remove();
-			
-			dataTable.row($rowIndex).data($data).draw(false);
+			dataTable.draw(false);
+
+			$row = $(dataTable.row($rowIndex).node());
 
 			activateJs($row);
 
@@ -331,14 +383,16 @@ var AjaxCrud = function (config) {
 
 			revertColspan($row);
 			$html = $($.parseHTML($.trim(html)));
-			
 			$dRow = dataTable.row.add($html);
-			$data = $dRow.data();
-			$dRow.remove();
-			
-			dataTable.row($rowIndex).data($data).draw(false);
 
-			// $row = $(html).replaceAll($row);
+			dataTable.context[0].aoData[$rowIndex]._aData = dataTable.context[0].aoData[$dRow.index()]._aData;
+			dataTable.context[0].aoData[$rowIndex].anCells = dataTable.context[0].aoData[$dRow.index()].anCells;
+			dataTable.context[0].aoData[$rowIndex].nTr = dataTable.context[0].aoData[$dRow.index()].nTr;
+
+			$dRow.remove();
+			dataTable.draw(false);
+
+			$row = $(dataTable.row($rowIndex).node());
 
 			activateJs($row);
 
@@ -551,125 +605,6 @@ var AjaxCrud = function (config) {
 
 		applyHook('deleteNewRowDone', {"table": table});
 	}
-
-	function sortRows (event) {
-		//If button is 'Change Sort Order'
-		if(sortMode == "view") {
-			table.prev().find('.dataTables_filter').hide();
-
-			//Resets the DataTable sort to use the sort_order database field
-			var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
-			dataTable.order([columnIndex, 'asc']).draw();
-
-			//Updates the wording of the 'Change Sort Order' button and updates table styles to give a visual indicator
-			sortMode = "sort";
-			sortButton.html('Save Sort Order');
-			if(typeof(cancelSortButton) != "undefined") {
-				cancelSortButton.show();
-			}
-
-			//Fix for Chrome styling error
-			table.find('tbody').addClass('sort-body');
-			table.find('tbody tr td:last-of-type').addClass('sort-column');
-
-			//Sets the table body as sortable, disables selection of text and enables sorting
-			table.find('tbody').sortable({
-				helper: function(e, tr) {
-				    var $originals = tr.children();
-				    var $helper = tr.clone();
-				    $helper.children().each(function (index, element)
-				    {
-				      // Set helper cell sizes to match the original sizes
-				      $(element).width($originals.eq(index).width());
-				    });
-					$helper.find(".sort-column").removeClass('sort-column');
-
-				    return $helper;
-			  	}
-			});
-			table.find('tbody').sortable("enable");
-			table.find('tbody').disableSelection();
-
-			table.on('order.dt', disableSorting);
-
-		//If button is 'Save Sort Order'
-		} else {
-			table.prev().find('.dataTables_filter').show();
-			//Reverts the text of the 'Save Sort Order' button and the table styles
-			sortMode = "view";
-			sortButton.html('Change Sort Order');
-			if(typeof(cancelSortButton) != "undefined") {
-				cancelSortButton.hide();	
-			}
-			
-
-			table.find('tbody').removeClass('sort-body');
-			table.find('tbody tr td:last-of-type').removeClass('sort-column');
-
-
-			//Disables sorting and enables text selection
-			table.find('tbody').sortable("disable");
-			table.find('tbody').enableSelection();
-
-			//Gets an array of ids in the order the user sorted them
-			//Gets an array of ids in the order the user sorted them
-			var sortable = table.find('tbody').sortable( "instance" );
-			var ids = sortable.toArray({attribute: "data-id"});
-			var data = applyFilter('sortRowsDataFilter', {ids: ids}, {sortable: sortable});
-
-			$.blockUI({ message: '' });
-
-			var request = $.ajax({
-				method: "PUT",
-				url: urls.urlAjaxSortPut,
-				cache: false,
-				data: data
-				});
-
-			request.done(function( html ) {
-				$.unblockUI();
-				applyHook('sortRowsRequestDone', {});
-				table.off('order.dt', disableSorting);
-			});
-
-			request.fail(function( jqXHR, textStatus ) {
-				$.unblockUI();
-				alert( "Request failed: " + textStatus );
-
-			});
-
-		}
-	}
-
-	function cancelSortRows (event) {
-		sortMode = "view";
-		sortButton.html('Change Sort Order');
-		cancelSortButton.hide();
-		table.prev().find('.dataTables_filter').show();
-
-		table.find('tbody').sortable("destroy");
-		table.find('tbody').enableSelection();
-		table.find('tbody').removeClass('sort-body');
-		table.find('tbody tr td:last-of-type').removeClass('sort-column');
-
-		var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
-		dataTable.order([columnIndex, 'asc']).draw();
-		table.off('order.dt', disableSorting);
-	}
-
-	function disableSorting() {
-		var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
-		 
-		var order = dataTable.order();
-		if(order.length == 1) {
-			if(order[0][0] != columnIndex || order[0][1] != 'asc') {
-				dataTable.order([[columnIndex, "asc"]]).draw();
-			}
-		} else {
-			dataTable.order([[columnIndex, "asc"]]).draw();
-		}
-	}
-
 	function editModal(event) {
 		var $row = $(event.target).closest('tr');
 		var $modal = $('#edit-modal');
@@ -752,13 +687,14 @@ var AjaxCrud = function (config) {
 			var $rowIndex = dataTable.row($row).index();
 	
 			$html = $($.parseHTML($.trim(html)));
-			
 			$dRow = dataTable.row.add($html);
-			$data = $dRow.data();
+
+			dataTable.context[0].aoData[$rowIndex] = dataTable.context[0].aoData[$dRow.index()];
+
 			$dRow.remove();
-			
-			$row = dataTable.row($rowIndex).data($data).draw(false).node();
-			$row = $($row);
+			dataTable.draw(false);
+
+			$row = $(dataTable.row($rowIndex).node());
 
 			$("#edit-modal").niftyModal("hide");
 
@@ -876,41 +812,123 @@ var AjaxCrud = function (config) {
 		});
 
 	}
+	function sortRows (event) {
+		//If button is 'Change Sort Order'
+		if(sortMode == "view") {
+			table.prev().find('.dataTables_filter').hide();
 
-	function revertColspan($row) {
-		$row.find('td[data-colspan]').each(function (index, element) {
-			var $elem = $(element);
-			var colspan = $elem.attr('data-colspan');
+			//Resets the DataTable sort to use the sort_order database field
+			var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
+			dataTable.order([columnIndex, 'asc']).draw();
 
-			if($elem.attr('colspan') == colspan) {
-				var elemIndex = dataTable.cell($elem).index().column;
-				var rowData = dataTable.row($row).data();
-				$elem.attr('colspan', '');
-
-				for(i = 0; i < (colspan - 1); i++) {
-					elemIndex++;
-					$elem.after('<td>' + rowData[elemIndex] + '</td>');
-					$elem = $elem.next();
-				}
+			//Updates the wording of the 'Change Sort Order' button and updates table styles to give a visual indicator
+			sortMode = "sort";
+			sortButton.html('Save Sort Order');
+			if(typeof(cancelSortButton) != "undefined") {
+				cancelSortButton.show();
 			}
-		});
-	}
 
-	function applyHook(hook, args) {
-		if(!(typeof(config.hooks[hook]) == "undefined")) {
-			config.hooks[hook](args);
-		}
-	}
+			//Fix for Chrome styling error
+			table.find('tbody').addClass('sort-body');
+			table.find('tbody tr td:last-of-type').addClass('sort-column');
 
-	function applyFilter(filter, def, args) {
-		if(!(typeof(config.filters[filter]) == "undefined")) {
-			return config.filters[filter](def, args);
+			//Sets the table body as sortable, disables selection of text and enables sorting
+			table.find('tbody').sortable({
+				helper: function(e, tr) {
+				    var $originals = tr.children();
+				    var $helper = tr.clone();
+				    $helper.children().each(function (index, element)
+				    {
+				      // Set helper cell sizes to match the original sizes
+				      $(element).width($originals.eq(index).width());
+				    });
+					$helper.find(".sort-column").removeClass('sort-column');
+
+				    return $helper;
+			  	}
+			});
+			table.find('tbody').sortable("enable");
+			table.find('tbody').disableSelection();
+
+			table.on('order.dt', disableSorting);
+
+		//If button is 'Save Sort Order'
 		} else {
-			return def;
+			table.prev().find('.dataTables_filter').show();
+			//Reverts the text of the 'Save Sort Order' button and the table styles
+			sortMode = "view";
+			sortButton.html('Change Sort Order');
+			if(typeof(cancelSortButton) != "undefined") {
+				cancelSortButton.hide();	
+			}
+			
+
+			table.find('tbody').removeClass('sort-body');
+			table.find('tbody tr td:last-of-type').removeClass('sort-column');
+
+
+			//Disables sorting and enables text selection
+			table.find('tbody').sortable("disable");
+			table.find('tbody').enableSelection();
+
+			//Gets an array of ids in the order the user sorted them
+			//Gets an array of ids in the order the user sorted them
+			var sortable = table.find('tbody').sortable( "instance" );
+			var ids = sortable.toArray({attribute: "data-id"});
+			var data = applyFilter('sortRowsDataFilter', {ids: ids}, {sortable: sortable});
+
+			$.blockUI({ message: '' });
+
+			var request = $.ajax({
+				method: "PUT",
+				url: urls.urlAjaxSortPut,
+				cache: false,
+				data: data
+				});
+
+			request.done(function( html ) {
+				$.unblockUI();
+				applyHook('sortRowsRequestDone', {});
+				table.off('order.dt', disableSorting);
+			});
+
+			request.fail(function( jqXHR, textStatus ) {
+				$.unblockUI();
+				alert( "Request failed: " + textStatus );
+
+			});
+
 		}
 	}
 
+	function cancelSortRows (event) {
+		sortMode = "view";
+		sortButton.html('Change Sort Order');
+		cancelSortButton.hide();
+		table.prev().find('.dataTables_filter').show();
 
+		table.find('tbody').sortable("destroy");
+		table.find('tbody').enableSelection();
+		table.find('tbody').removeClass('sort-body');
+		table.find('tbody tr td:last-of-type').removeClass('sort-column');
+
+		var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
+		dataTable.order([columnIndex, 'asc']).draw();
+		table.off('order.dt', disableSorting);
+	}
+
+	function disableSorting() {
+		var columnIndex = applyFilter('sortRowsColumnIndex', 0, {});
+		 
+		var order = dataTable.order();
+		if(order.length == 1) {
+			if(order[0][0] != columnIndex || order[0][1] != 'asc') {
+				dataTable.order([[columnIndex, "asc"]]).draw();
+			}
+		} else {
+			dataTable.order([[columnIndex, "asc"]]).draw();
+		}
+	}
 	function validationIsValid($container, recursive) {
 		if(typeof(recursive) == "undefined") {
 			recursive = false;
@@ -955,22 +973,6 @@ var AjaxCrud = function (config) {
 			});
 		}
 	}
-
-	function focusInput($row) {
-		$input = $row.find('.focus-field');
-		if($input.hasClass('select2')) {
-			$input.select2('open');
-		} else {
-			$input.focus();
- 		}
- 	}
-
-	function activateJs($parent) {
-		if(typeof(App) != "undefined" && typeof(App.activate) != "undefined") {
-			App.activate($parent);
-		}
-	}
-	
 	return {
 		form: form,
 		table: table,
