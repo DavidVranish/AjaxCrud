@@ -181,10 +181,12 @@
 			});
 
 			var newRows = $.parseHTML($.trim(html));
+			var rows = [];
 
 			$(newRows).each( function (index, element) {
 				if($(element).context.nodeName != "#text") {
 					var row = dataTable.row.add($(element)).draw(false).node();
+					rows[index] = $(row);
 					activateJs($(row));
 				}
 			});
@@ -192,7 +194,7 @@
 			$("#new-modal").niftyModal("hide");
 
 			//Hook Call
-			applyHook('saveNewModalRequestDone', {"$modal": $modal});
+			applyHook('saveNewModalRequestDone', {"$modal": $modal, "rows": rows});
 
 			$.unblockUI();
 
