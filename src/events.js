@@ -118,3 +118,17 @@
 			cancelSortRows(event);
 		});
 	}
+
+	if (typeof(editAllButton) != "undefined") {
+		editAllButton.click(function (event) {
+			event.preventDefault();
+			editAllRows(event);
+		});
+	}
+
+	if (typeof(saveAllButton) != "undefined") {
+		saveAllButton.click(function (event) {
+			event.preventDefault();
+			saveAllRows(event);
+		});
+	}

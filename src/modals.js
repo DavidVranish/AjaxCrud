@@ -1,6 +1,9 @@
 	function editModal(event) {
 		var $row = $(event.target).closest('tr');
 		var $modal = $('#edit-modal');
+
+		applyHook('editModalStart', {"$modal": $modal, "$row": $row});
+
 		var id = $row.attr('data-id');
 
 		$.blockUI({ message: '' });
@@ -43,6 +46,8 @@
 		
 		// FormValidation instance
 	    var $modal = $('#edit-modal');
+
+	    applyHook('saveModalStart', {"$modal": $modal});
 
 		if (recursive == false) {
 			$.blockUI({ message: '' });
@@ -110,6 +115,8 @@
 	function addNewModal(event) {
 		var $modal = $('#new-modal');
 
+		applyHook('addNewModalStart', {"$modal": $modal});
+
 		$.blockUI({ message: '' });
 
 		var request = $.ajax({
@@ -145,6 +152,8 @@
 
 		var $modal = $('#new-modal');
 		
+		applyHook('saveNewModalStart', {"$modal": $modal});
+
 		if (recursive == false) {
 			$.blockUI({ message: '' });
 		}

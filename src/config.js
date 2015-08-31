@@ -3,6 +3,8 @@ var AjaxCrud = function (config) {
 	var form = config.form; //$("form#create")
 	var table = config.table; //$("table#customers")
 	var createInitButton = config.createInitButton //$('button.js-create-init')
+	var editAllButton = config.editAllButton //$('button.js-create-init')
+	var saveAllButton = config.saveAllButton //$('button.js-create-init')
 	var sortButton = config.sortButton;
 	var cancelSortButton = config.cancelSortButton;
 	var formValidation;
@@ -12,6 +14,8 @@ var AjaxCrud = function (config) {
 		urlAjaxRowGet: config.urls.urlAjaxRowGet,
 		urlAjaxRowPut: config.urls.urlAjaxRowPut,
 		urlAjaxEditableRowGet: config.urls.urlAjaxEditableRowGet,
+		urlAjaxRowsPut: config.urls.urlAjaxRowsPut,
+		urlAjaxEditableRowsGet: config.urls.urlAjaxEditableRowsGet,
 		urlAjaxNewRowGet: config.urls.urlAjaxNewRowGet,
 		urlAjaxRowDelete: config.urls.urlAjaxRowDelete,
 		urlAjaxRowsPost: config.urls.urlAjaxRowsPost,

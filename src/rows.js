@@ -198,6 +198,8 @@
         		.remove()
         		.draw(false);
 
+        	applyHook('deleteRowDone', {});
+
 			$.unblockUI();
 
 		});
@@ -367,4 +369,132 @@
 		}
 
 		applyHook('deleteNewRowDone', {"table": table});
+	}
+
+	function editAllRows (event) {
+		var data = {};
+
+		data = applyFilter('editAllRowsDataFilter', data, {});
+		$.blockUI({ message: '' });
+
+		var request = $.ajax({
+			method: "GET",
+			url: urls.urlAjaxEditableRowsGet,
+			data: data,
+			cache: false
+		});
+
+		request.done(function( html ) {
+			dataTable.clear();
+
+			if(typeof(saveAllButton) != "undefined") {
+				saveAllButton.show();
+			}
+			if(typeof(editAllButton) != "undefined") {
+				editAllButton.hide();
+			}
+
+			var rows = $.parseHTML($.trim(html));
+
+			$(rows).each( function (index, element) {
+				if($(element).context.nodeName != "#text") {
+					var $row = $(dataTable.row.add($(element)).draw(false).node());
+					activateJs($row);
+					validationAddFields($row.find('.value-field'));
+				}
+			});
+			
+			focusInput(table.find('tr:first'));
+
+			applyHook('editAllRowsRequestDone', {});
+
+			$.unblockUI();
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
+	}
+
+	function saveAllRows (event) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+
+		var $tbody = table.find('tbody');
+		
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($tbody, recursive) == null) {
+		    // Stop submission because of validation error.
+		    setTimeout(function() {saveRow(event, true)}, 150);
+		    return false;
+
+		} else if (validationIsValid($tbody, recursive) == false) {
+			return false;
+			
+		}
+
+		$.blockUI({ message: '' });
+
+		var rowsData = {};
+		table.find('tbody tr.edit-row').each(function (index, element) {
+			var rowData = {};
+			$(element).find('.value-field').each(function (index, element) {
+				if (!$(element).is(':checkbox') || $(element).is(':checked')) {			
+					rowData[$(element).attr('name')] = $(element).val();
+				}
+			});
+			rowsData[index] = rowData;
+
+		});
+
+		var request = $.ajax({
+			method: "PUT",
+			url: urls.urlAjaxRowsPut,
+			data: {
+				rows: rowsData
+			},
+			cache: false
+		});
+
+		request.done(function( html ) {
+			table.find('tbody tr.edit-row').each( function (index, element) {
+				validationResetFields($(element).find('.value-field'));
+			});
+
+			dataTable.clear();
+
+			if(typeof(saveAllButton) != "undefined") {
+				saveAllButton.hide();
+			}
+			if(typeof(editAllButton) != "undefined") {
+				editAllButton.show();
+			}
+
+			var rows = $.parseHTML($.trim(html));
+
+			$(rows).each( function (index, element) {
+				if($(element).context.nodeName != "#text") {
+					var row = dataTable.row.add($(element)).draw(false).node();
+					activateJs($(row));
+				}
+			});
+
+			//Hook Call
+			applyHook('saveAllRowsRequestDone', {"table": table});
+
+			$.unblockUI();
+
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
 	}

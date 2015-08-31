@@ -3,6 +3,8 @@ var AjaxCrud = function (config) {
 	var form = config.form; //$("form#create")
 	var table = config.table; //$("table#customers")
 	var createInitButton = config.createInitButton //$('button.js-create-init')
+	var editAllButton = config.editAllButton //$('button.js-create-init')
+	var saveAllButton = config.saveAllButton //$('button.js-create-init')
 	var sortButton = config.sortButton;
 	var cancelSortButton = config.cancelSortButton;
 	var formValidation;
@@ -12,6 +14,8 @@ var AjaxCrud = function (config) {
 		urlAjaxRowGet: config.urls.urlAjaxRowGet,
 		urlAjaxRowPut: config.urls.urlAjaxRowPut,
 		urlAjaxEditableRowGet: config.urls.urlAjaxEditableRowGet,
+		urlAjaxRowsPut: config.urls.urlAjaxRowsPut,
+		urlAjaxEditableRowsGet: config.urls.urlAjaxEditableRowsGet,
 		urlAjaxNewRowGet: config.urls.urlAjaxNewRowGet,
 		urlAjaxRowDelete: config.urls.urlAjaxRowDelete,
 		urlAjaxRowsPost: config.urls.urlAjaxRowsPost,
@@ -235,6 +239,20 @@ var AjaxCrud = function (config) {
 			cancelSortRows(event);
 		});
 	}
+
+	if (typeof(editAllButton) != "undefined") {
+		editAllButton.click(function (event) {
+			event.preventDefault();
+			editAllRows(event);
+		});
+	}
+
+	if (typeof(saveAllButton) != "undefined") {
+		saveAllButton.click(function (event) {
+			event.preventDefault();
+			saveAllRows(event);
+		});
+	}
 	function saveRow (event, recursive) {
 		if(typeof(recursive) == "undefined") {
 			recursive = false;
@@ -435,6 +453,8 @@ var AjaxCrud = function (config) {
         		.remove()
         		.draw(false);
 
+        	applyHook('deleteRowDone', {});
+
 			$.unblockUI();
 
 		});
@@ -605,9 +625,140 @@ var AjaxCrud = function (config) {
 
 		applyHook('deleteNewRowDone', {"table": table});
 	}
+
+	function editAllRows (event) {
+		var data = {};
+
+		data = applyFilter('editAllRowsDataFilter', data, {});
+		$.blockUI({ message: '' });
+
+		var request = $.ajax({
+			method: "GET",
+			url: urls.urlAjaxEditableRowsGet,
+			data: data,
+			cache: false
+		});
+
+		request.done(function( html ) {
+			dataTable.clear();
+
+			if(typeof(saveAllButton) != "undefined") {
+				saveAllButton.show();
+			}
+			if(typeof(editAllButton) != "undefined") {
+				editAllButton.hide();
+			}
+
+			var rows = $.parseHTML($.trim(html));
+
+			$(rows).each( function (index, element) {
+				if($(element).context.nodeName != "#text") {
+					var $row = $(dataTable.row.add($(element)).draw(false).node());
+					activateJs($row);
+					validationAddFields($row.find('.value-field'));
+				}
+			});
+			
+			focusInput(table.find('tr:first'));
+
+			applyHook('editAllRowsRequestDone', {});
+
+			$.unblockUI();
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
+	}
+
+	function saveAllRows (event) {
+		if(typeof(recursive) == "undefined") {
+			recursive = false;
+		}
+
+		var $tbody = table.find('tbody');
+		
+		if (recursive == false) {
+			$.blockUI({ message: '' });
+		}
+
+		if (validationIsValid($tbody, recursive) == null) {
+		    // Stop submission because of validation error.
+		    setTimeout(function() {saveRow(event, true)}, 150);
+		    return false;
+
+		} else if (validationIsValid($tbody, recursive) == false) {
+			return false;
+			
+		}
+
+		$.blockUI({ message: '' });
+
+		var rowsData = {};
+		table.find('tbody tr.edit-row').each(function (index, element) {
+			var rowData = {};
+			$(element).find('.value-field').each(function (index, element) {
+				if (!$(element).is(':checkbox') || $(element).is(':checked')) {			
+					rowData[$(element).attr('name')] = $(element).val();
+				}
+			});
+			rowsData[index] = rowData;
+
+		});
+
+		var request = $.ajax({
+			method: "PUT",
+			url: urls.urlAjaxRowsPut,
+			data: {
+				rows: rowsData
+			},
+			cache: false
+		});
+
+		request.done(function( html ) {
+			table.find('tbody tr.edit-row').each( function (index, element) {
+				validationResetFields($(element).find('.value-field'));
+			});
+
+			dataTable.clear();
+
+			if(typeof(saveAllButton) != "undefined") {
+				saveAllButton.hide();
+			}
+			if(typeof(editAllButton) != "undefined") {
+				editAllButton.show();
+			}
+
+			var rows = $.parseHTML($.trim(html));
+
+			$(rows).each( function (index, element) {
+				if($(element).context.nodeName != "#text") {
+					var row = dataTable.row.add($(element)).draw(false).node();
+					activateJs($(row));
+				}
+			});
+
+			//Hook Call
+			applyHook('saveAllRowsRequestDone', {"table": table});
+
+			$.unblockUI();
+
+		});
+
+		request.fail(function( jqXHR, textStatus ) {
+			$.unblockUI();
+			alert( "Request failed: " + textStatus );
+
+		});
+	}
 	function editModal(event) {
 		var $row = $(event.target).closest('tr');
 		var $modal = $('#edit-modal');
+
+		applyHook('editModalStart', {"$modal": $modal, "$row": $row});
+
 		var id = $row.attr('data-id');
 
 		$.blockUI({ message: '' });
@@ -650,6 +801,8 @@ var AjaxCrud = function (config) {
 		
 		// FormValidation instance
 	    var $modal = $('#edit-modal');
+
+	    applyHook('saveModalStart', {"$modal": $modal});
 
 		if (recursive == false) {
 			$.blockUI({ message: '' });
@@ -717,6 +870,8 @@ var AjaxCrud = function (config) {
 	function addNewModal(event) {
 		var $modal = $('#new-modal');
 
+		applyHook('addNewModalStart', {"$modal": $modal});
+
 		$.blockUI({ message: '' });
 
 		var request = $.ajax({
@@ -752,6 +907,8 @@ var AjaxCrud = function (config) {
 
 		var $modal = $('#new-modal');
 		
+		applyHook('saveNewModalStart', {"$modal": $modal});
+
 		if (recursive == false) {
 			$.blockUI({ message: '' });
 		}
