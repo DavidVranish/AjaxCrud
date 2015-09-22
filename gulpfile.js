@@ -16,7 +16,7 @@ gulp.task('lint', function() {
 
 // Concatenate & Minify JS
 gulp.task('scripts', function() {
-    return gulp.src('src/*.js')
+    return gulp.src(['src/config.js', 'src/events.js', 'src/rows.js', 'src/modals.js', 'src/sorting.js', 'src/validation.js', 'src/end.js'])
         .pipe(concat('AjaxCrud.js'))
         .pipe(gulp.dest('dist/js'))
         .pipe(rename('AjaxCrud.min.js'))
