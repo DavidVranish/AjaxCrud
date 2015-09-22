@@ -42,7 +42,11 @@ See example code for examples of implementation
 - 'data-id' Must be set for editable and non-editable rows (not new rows) must be set to the database row id
 
 **Development Information:**
-- When running composer, use these options:
+- Compiling files in development now uses gulp
 ```
-composer update --profile --prefer-source
+npm install gulp gulp-jshint gulp-concat gulp-uglify gulp-rename --save-dev
+```
+After installing gulp, simply run the gulp function
+```
+gulp default
 ```
