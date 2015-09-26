@@ -101,6 +101,7 @@
 			activateJs($row);
 			$.unblockUI();
 
+			applyHook('saveModalRequestLast', {"$modal": $modal});
 		});
 
 		request.fail(function( jqXHR, textStatus ) {
@@ -207,6 +208,7 @@
 
 			$.unblockUI();
 
+			applyHook('saveNewModalRequestLast', {"$modal": $modal, "rows": rows});
 		});
 
 		request.fail(function( jqXHR, textStatus ) {

@@ -856,6 +856,7 @@ var AjaxCrud = function (config) {
 			activateJs($row);
 			$.unblockUI();
 
+			applyHook('saveModalRequestLast', {"$modal": $modal});
 		});
 
 		request.fail(function( jqXHR, textStatus ) {
@@ -962,6 +963,7 @@ var AjaxCrud = function (config) {
 
 			$.unblockUI();
 
+			applyHook('saveNewModalRequestLast', {"$modal": $modal, "rows": rows});
 		});
 
 		request.fail(function( jqXHR, textStatus ) {
