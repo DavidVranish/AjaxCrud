@@ -84,7 +84,7 @@
 	});
 
 	if (typeof(createInitButton) != "undefined") {
-		createInitButton.click(function (event) {
+		$(document).on('click', createInitButton.selector, function (event) {
 			event.preventDefault();
 			if($(event.target).hasClass('new-modal')) {			
 				addNewModal(event);
