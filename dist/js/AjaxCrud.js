@@ -205,7 +205,7 @@ var AjaxCrud = function (config) {
 	});
 
 	if (typeof(createInitButton) != "undefined") {
-		createInitButton.click(function (event) {
+		$(document).on('click', createInitButton.selector, function (event) {
 			event.preventDefault();
 			if($(event.target).hasClass('new-modal')) {			
 				addNewModal(event);
@@ -253,6 +253,7 @@ var AjaxCrud = function (config) {
 			saveAllRows(event);
 		});
 	}
+
 	function saveRow (event, recursive) {
 		if(typeof(recursive) == "undefined") {
 			recursive = false;
@@ -539,7 +540,7 @@ var AjaxCrud = function (config) {
 
 		if (validationIsValid($tfoot, recursive) == null) {
 		    // Stop submission because of validation error.
-		    setTimeout(function() {saveRow(event, true)}, 150);
+		    setTimeout(function() {saveNewRows(event, true)}, 150);
 		    return false;
 
 		} else if (validationIsValid($tfoot, recursive) == false) {

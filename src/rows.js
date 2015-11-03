@@ -284,7 +284,7 @@
 
 		if (validationIsValid($tfoot, recursive) == null) {
 		    // Stop submission because of validation error.
-		    setTimeout(function() {saveRow(event, true)}, 150);
+		    setTimeout(function() {saveNewRows(event, true)}, 150);
 		    return false;
 
 		} else if (validationIsValid($tfoot, recursive) == false) {
