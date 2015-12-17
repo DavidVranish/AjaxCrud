@@ -215,10 +215,10 @@
 		var $row = $(event.target).closest('tr');
 		var id = $row.attr('data-id');
 
-		var headerText = $.trim($row.find('.delete-header').text());
-		var bodyText = $.trim($row.find('.delete-body').text());
-		$('#delete-modal .header-text').text('Remove: ' + headerText);
-		$('#delete-modal .body-text').text(bodyText + ' will be removed. Ok to proceed?');
+		var headerText = $.trim($row.find('.delete-header').html());
+		var bodyText = $.trim($row.find('.delete-body').html());
+		$('#delete-modal .header-text').html('Remove: ' + headerText);
+		$('#delete-modal .body-text').html(bodyText + ' will be removed. Ok to proceed?');
 
 		$("#delete-modal .ads-delete").attr('data-id', id);
 
